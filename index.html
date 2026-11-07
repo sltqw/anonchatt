@@ -306,23 +306,21 @@
     let activeChat = 'nofi';
 
     // --- PUSHER БАПТАУЛАРЫ ---
-    // Pusher кілті мен кластері енгізілді
     const pusher = new Pusher('4ca4c7c9439307ce058a', {
       cluster: 'eu'
     });
 
-    // Екі чатқа арналған арнайы каналдар
     const privateChannel = pusher.subscribe('private-chat-room');
     const anonChannel = pusher.subscribe('anon-chat-room');
 
-    // Басқа біреу хабарлама жібергенде оны ұстап алып экранға шығару
-    privateChannel.bind('new-message', function(data) {
+    // Басқа жақтан келген хабарламаны ұстап алу
+    privateChannel.bind('client-message', function(data) {
       if (activeChat === 'nofi') {
         appendIncomingMessage(data.text, data.time);
       }
     });
 
-    anonChannel.bind('new-message', function(data) {
+    anonChannel.bind('client-message', function(data) {
       if (activeChat === 'anon') {
         appendIncomingMessage(data.text, data.time);
       }
@@ -387,7 +385,6 @@
       }
     }
 
-    // Хабарлама жіберу (Pusher арқылы басқа телефонға да кетеді)
     function sendMessage(e) {
       e.preventDefault();
       const input = document.getElementById('msg-input');
@@ -397,13 +394,17 @@
       const now = new Date();
       const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
-      // Өз экранымызға шығару (Оң жаққа)
+      // Өз экранымызға шығару
       appendOutgoingMessage(text, timeStr);
-      input.value = '';
 
-      // Ескерту: Pusher клиенттік жағынан басқаларға тікелей trigger жасау үшін 
-      // сервер немесе Pusches Apps API қажет. Бірақ екі браузер өзара жұмыс істеуі үшін 
-      // төмендегідей fetch арқылы жіберуге болады немесе бэкенд арқылы іске қосамыз.
+      // Pusher арқылы екінші адамға жіберу
+      const channelName = activeChat === 'nofi' ? privateChannel : anonChannel;
+      channelName.trigger('client-message', {
+        text: text,
+        time: timeStr
+      });
+
+      input.value = '';
     }
 
     function appendOutgoingMessage(text, timeStr) {
